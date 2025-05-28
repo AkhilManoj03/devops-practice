@@ -134,7 +134,8 @@ class JSONDataManager:
             with open(self.settings.products_file, 'r', encoding='utf-8') as f:
                 products = json.load(f)
 
-            # Validate products structure
+            if not products:
+                raise ValueError("Products file must not be empty")
             if not isinstance(products, list):
                 raise ValueError("Products file must contain a list")
 
