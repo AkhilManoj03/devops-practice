@@ -54,7 +54,7 @@ class DatabaseManager:
             self._initialize_schema()
         except psycopg2.Error as e:
             logging.error(f"Failed to connect to database: {e}")
-            raise DataPersistenceError(f"Failed to connect to database: {e}")
+            raise DataPersistenceError("Failed to connect to database")
 
     def _initialize_schema(self) -> None:
         """Initialize database schema for products with votes.
@@ -89,7 +89,7 @@ class DatabaseManager:
                 logging.info("Database schema initialized successfully")
         except psycopg2.Error as e:
             logging.error(f"Failed to initialize database schema: {e}")
-            raise DataPersistenceError(f"Failed to initialize database schema: {e}")
+            raise DataPersistenceError("Failed to initialize database schema")
 
     def disconnect(self) -> None:
         """Close database connection.
@@ -105,7 +105,7 @@ class DatabaseManager:
             logging.info("Database connection closed successfully")
         except Exception as e:
             logging.error(f"Error closing database connection: {e}")
-            raise DataPersistenceError(f"Error closing database connection: {e}")
+            raise DataPersistenceError("Error closing database connection")
 
     def is_connected(self) -> bool:
         """Check if database connection is active.
@@ -144,7 +144,7 @@ class DatabaseManager:
                 logging.info(f"Fetched {len(rows)} products from database") 
                 return [
                     {
-                        "id": str(row[0]),  # Convert to string for consistency with JSON
+                        "id": str(row[0]),
                         "name": row[1],
                         "description": row[2],
                         "image_url": row[3],
@@ -154,7 +154,7 @@ class DatabaseManager:
                 ]
         except psycopg2.Error as e:
             logging.error(f"Database error in get_products: {e}")
-            raise DataPersistenceError(f"Database error: {e}")
+            raise DataPersistenceError("Error fetching products from database")
 
     def get_product_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
         """Fetch a single product by ID from database with votes.
@@ -191,7 +191,7 @@ class DatabaseManager:
                 }
         except psycopg2.Error as e:
             logging.error(f"Database error in get_product_by_id: {e}")
-            raise DataPersistenceError(f"Database error: {e}")
+            raise DataPersistenceError("Error fetching product from database")
 
     def get_votes_for_product(self, product_id: int) -> int:
         """Get vote count for a specific product from database.
@@ -214,12 +214,13 @@ class DatabaseManager:
                 cursor.execute("SELECT votes FROM products WHERE id = %s", (product_id,))
                 row = cursor.fetchone()
                 if not row:
-                    raise ProductNotFoundError(f"Product with ID {product_id} not found")
+                    logging.error(f"Product with ID {product_id} not found in database")
+                    raise ProductNotFoundError("Product not found in database")
                 
                 return row[0] or 0
         except psycopg2.Error as e:
             logging.error(f"Database error in get_votes_for_product: {e}")
-            raise DataPersistenceError(f"Database error: {e}")
+            raise DataPersistenceError("Error fetching votes for product from database")
 
     def add_vote(self, product_id: int) -> Dict[str, Any]:
         """Add a vote for a product in the database.
@@ -246,7 +247,8 @@ class DatabaseManager:
                 cursor.execute("SELECT name, votes FROM products WHERE id = %s", (product_id,))
                 row = cursor.fetchone()
                 if not row:
-                    raise ProductNotFoundError(f"Product with ID {product_id} not found")
+                    logging.error(f"Product with ID {product_id} not found in database")
+                    raise ProductNotFoundError("Product not found in database")
                 
                 product_name, current_votes = row
                 new_votes = (current_votes or 0) + 1
@@ -268,8 +270,8 @@ class DatabaseManager:
         except psycopg2.Error as e:
             if self.connection:
                 self.connection.rollback()
-            logging.error(f"Database error in add_vote: {e}")
-            raise DataPersistenceError(f"Database error: {e}")
+            logging.error(f"Error adding vote to database for product {product_id}: {e}")
+            raise DataPersistenceError("Error adding vote to database for product")
 
 
 class JSONDataManager:
@@ -316,9 +318,11 @@ class JSONDataManager:
             logging.info(f"Loaded {len(products)} products from JSON file: {products_file}")
             return products
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            raise DataPersistenceError(f"Failed to load products from {products_file}: {e}")
+            logging.error(f"Failed to load products from {products_file}: {e}")
+            raise DataPersistenceError("Failed to load products from json file")
         except Exception as e:
-            raise DataPersistenceError(f"Unexpected Error loading products: {e}")
+            logging.error(f"Unexpected Error loading products: {e}")
+            raise DataPersistenceError("Unexpected Error loading products from json file")
 
     def save_products(self) -> None:
         """Save products to JSON file.
@@ -339,7 +343,8 @@ class JSONDataManager:
                 json.dump(self._products_cache, f, indent=2)
             logging.debug(f"Products saved successfully to {products_file}")
         except OSError as e:
-            raise DataPersistenceError(f"Failed to save products to {products_file}: {e}")
+            logging.error(f"Failed to save products to {products_file}: {e}")
+            raise DataPersistenceError("Failed to save products to json file")
 
     def get_products(self) -> List[Dict[str, Any]]:
         """Get all products from cache.
@@ -404,7 +409,8 @@ class JSONDataManager:
         )
 
         if product is None:
-            raise ProductNotFoundError(f"Product with ID {product_id} not found")
+            logging.error(f"Product with ID {product_id} not found in cache")
+            raise ProductNotFoundError("Product not found in cache")
         
         return product.get("votes", 0)
 
@@ -435,7 +441,8 @@ class JSONDataManager:
         )
 
         if product_index is None:
-            raise ProductNotFoundError(f"Product with ID {product_id} not found")
+            logging.error(f"Product with ID {product_id} not found in cache")
+            raise ProductNotFoundError("Product not found in cache")
 
         # Add vote
         current_votes = self._products_cache[product_index].get("votes", 0)
@@ -449,7 +456,7 @@ class JSONDataManager:
             # Rollback the vote change
             self._products_cache[product_index]["votes"] = current_votes
             logging.warning(f"Rolled back vote for product {product_id} due to save failure")
-            raise
+            raise DataPersistenceError("Failed to save products to json file")
 
         logging.debug(f"Vote added for product {product_id}: {current_votes} -> {new_votes}")
 
@@ -514,7 +521,7 @@ class DataAccessLayer:
             logging.info("Data access layer initialized successfully")
         except Exception as e:
             logging.error(f"Critical failure during data access initialization: {e}")
-            raise DataPersistenceError(f"Data initialization failed: {e}")
+            raise DataPersistenceError("Data initialization failed")
 
     def cleanup(self) -> None:
         """Clean up resources.
@@ -578,7 +585,8 @@ class DataAccessLayer:
             raise DataPersistenceError("Invalid data source configuration")
         
         if product is None:
-            raise ProductNotFoundError(f"Product with ID {product_id} not found")
+            logging.error(f"Product with ID {product_id} not found in data source")
+            raise ProductNotFoundError("Product not found in data source")
         
         return product
 
@@ -637,7 +645,7 @@ class DataAccessLayer:
         elif self.settings.data_source == "json" and self.json_manager:
             return self.json_manager.add_vote(product_id)
         else:
-            raise DataPersistenceError("Invalid data source configuration")
+            raise DataPersistenceError("Invalid data source configuration in add vote")
 
     def health_check(self) -> bool:
         """Check if the data source is healthy and accessible.
@@ -651,8 +659,10 @@ class DataAccessLayer:
                 
             if self.settings.data_source == "database":
                 return self.db_manager.is_connected() if self.db_manager else False
-            else:
+            elif self.settings.data_source == "json":
                 return self.json_manager.is_loaded() if self.json_manager else False
+            else:
+                raise DataPersistenceError("Invalid data source configuration in health check")
         except Exception as e:
             logging.error(f"Health check failed: {e}")
             return False
