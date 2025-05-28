@@ -547,10 +547,7 @@ class DataAccessLayer:
             
         Raises:
             DataPersistenceError: If data source is not initialized or access fails.
-        """
-        if not self._initialized:
-            self.initialize()
-            
+        """            
         if self.settings.data_source == "database" and self.db_manager:
             return self.db_manager.get_products()
         elif self.settings.data_source == "json" and self.json_manager:
@@ -572,9 +569,6 @@ class DataAccessLayer:
             ProductNotFoundError: If no product exists with the given ID.
             DataPersistenceError: If data source is not initialized or access fails.
         """
-        if not self._initialized:
-            self.initialize()
-            
         if product_id <= 0:
             raise DataValidationError("Product ID must be positive")
 
@@ -605,9 +599,6 @@ class DataAccessLayer:
             ProductNotFoundError: If no product exists with the given ID.
             DataPersistenceError: If data source is not initialized or access fails.
         """
-        if not self._initialized:
-            self.initialize()
-            
         if product_id <= 0:
             raise DataValidationError("Product ID must be positive")
             
@@ -635,9 +626,6 @@ class DataAccessLayer:
             ProductNotFoundError: If no product exists with the given ID.
             DataPersistenceError: If data source is not initialized or access fails.
         """
-        if not self._initialized:
-            self.initialize()
-            
         if product_id <= 0:
             raise DataValidationError("Product ID must be positive")
             
@@ -655,11 +643,8 @@ class DataAccessLayer:
             bool: True if the data source is healthy, False otherwise.
         """
         try:
-            if not self._initialized:
-                self.initialize()
-                
             if self.settings.data_source == "database":
-                return self.db_manager.check_connected() if self.db_manager else False
+                return self.db_manager.check_connection() if self.db_manager else False
             elif self.settings.data_source == "json":
                 return self.json_manager.is_loaded() if self.json_manager else False
             else:
