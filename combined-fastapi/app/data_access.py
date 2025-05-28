@@ -107,7 +107,7 @@ class DatabaseManager:
             logging.error(f"Error closing database connection: {e}")
             raise DataPersistenceError("Error closing database connection")
 
-    def is_connected(self) -> bool:
+    def check_connection(self) -> bool:
         """Check if database connection is active.
         
         Returns:
@@ -658,7 +658,7 @@ class DataAccessLayer:
                 self.initialize()
                 
             if self.settings.data_source == "database":
-                return self.db_manager.is_connected() if self.db_manager else False
+                return self.db_manager.check_connected() if self.db_manager else False
             elif self.settings.data_source == "json":
                 return self.json_manager.is_loaded() if self.json_manager else False
             else:
