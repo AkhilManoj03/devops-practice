@@ -300,6 +300,7 @@ class JSONDataManager:
         if not products_file.exists():
             logging.info(f"Products file not found: {products_file}, starting with empty data")
             self._products_cache = []
+            self.save_products()
             return []
             
         try:
