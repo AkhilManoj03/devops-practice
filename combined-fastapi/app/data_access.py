@@ -378,7 +378,7 @@ class JSONDataManager:
         # Handle both string and int IDs for flexibility
         product = next(
             (product for product in self._products_cache 
-             if product.get('id') == product_id or product.get('id') == str(product_id)),
+             if product.get('id') == str(product_id)),
             None
         )
         if not product:
@@ -405,7 +405,7 @@ class JSONDataManager:
         
         product = next(
             (product for product in self._products_cache 
-             if product.get('id') == product_id or product.get('id') == str(product_id)),
+             if product.get('id') == str(product_id)),
             None
         )
 
@@ -437,7 +437,7 @@ class JSONDataManager:
         # Find product index
         product_index = next(
             (i for i, p in enumerate(self._products_cache) 
-             if p.get('id') == product_id or p.get('id') == str(product_id)),
+             if p.get('id') == str(product_id)),
             None
         )
 
