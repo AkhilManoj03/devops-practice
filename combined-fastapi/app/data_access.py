@@ -60,6 +60,7 @@ class DatabaseManager:
         """Initialize database schema for products with votes.
         
         Creates the products table and necessary indexes if they don't exist.
+        If the table is newly created, populates it with initial data from products.json.
         
         Raises:
             DataPersistenceError: If schema initialization fails.
@@ -69,6 +70,15 @@ class DatabaseManager:
             
         try:
             with self.connection.cursor() as cursor:
+                # Check if table exists
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'products'
+                    )
+                """)
+                table_exists = cursor.fetchone()[0]
+
                 # Create products table if it doesn't exist
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS products (
@@ -79,17 +89,58 @@ class DatabaseManager:
                         votes INTEGER DEFAULT 0
                     )
                 """)
-                
+
                 # Create index on id for faster lookups
                 cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_products_id ON products(id)
                 """)
-                
-                self.connection.commit()
-                logging.info("Database schema initialized successfully")
+
+                if table_exists:
+                    self.connection.commit()
+                    logging.info("Database schema initialized successfully")
+                    return
         except psycopg2.Error as e:
             logging.error(f"Failed to initialize database schema: {e}")
             raise DataPersistenceError("Failed to initialize database schema")
+
+        # Load initial data from JSON file
+        products_file = self.settings.get_products_file_path()
+        try:
+            with open(products_file, 'r', encoding='utf-8') as f:
+                products = json.load(f)
+
+            if not isinstance(products, list):
+                raise ValueError("Products file must contain a list")
+
+            # Ensure all products have a votes field
+            for product in products:
+                if 'votes' not in product:
+                    product['votes'] = 0
+
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logging.error(f"Failed to load initial products from {products_file}: {e}")
+            raise DataPersistenceError("Failed to load initial products from json file")
+
+        # Insert initial products into database
+        try:
+            with self.connection.cursor() as cursor:
+                for product in products:
+                    cursor.execute("""
+                        INSERT INTO products (id, name, description, image_url, votes)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        product['id'],
+                        product['name'],
+                        product['description'],
+                        product['image_url'],
+                        product.get('votes', 0)
+                    ))
+                self.connection.commit()
+                logging.info(f"Inserted {len(products)} initial products into database")
+                logging.info("Database schema initialized successfully")
+        except psycopg2.Error as e:
+            logging.error(f"Failed to insert initial products: {e}")
+            raise DataPersistenceError("Failed to insert initial products into database")
 
     def disconnect(self) -> None:
         """Close database connection.
